@@ -90,6 +90,11 @@ header p {
 
 .original-data-template {
   text-align: center;
+  max-width: 60%;
+}
+.original-data-template .p-terms {
+  text-align: start;
+  padding-left: 10rem;
 }
 .original-data-template .original-data-template_img {
   max-width: 60%;
