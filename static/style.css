@@ -14,6 +14,11 @@ body, html {
   color: #333;
 }
 
+body {
+  justify-content: space-around;
+  padding-left: 10%;
+}
+
 /* 背景アニメーション */
 .background {
   position: fixed;
@@ -81,6 +86,13 @@ header p {
 }
 .custom-file-input input[type=file] {
   display: none;
+}
+
+.original-data-template {
+  text-align: center;
+}
+.original-data-template .original-data-template_img {
+  max-width: 60%;
 }
 
 /* ボタンデザイン */

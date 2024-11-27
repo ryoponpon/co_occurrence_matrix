@@ -19,6 +19,11 @@ body, html {
     color: $text-color;
 }
 
+body{
+    justify-content: space-around;
+    padding-left: 10%;
+}
+
 /* 背景アニメーション */
 .background {
     position: fixed;
@@ -55,6 +60,7 @@ body, html {
     text-align: center;
     padding: 20px 30px;
     z-index: 1;
+    
 }
 
 /* ヘッダー */
@@ -91,6 +97,13 @@ p {
 
     input[type='file'] {
         display: none;
+    }
+}
+
+.original-data-template{
+    text-align: center;
+    .original-data-template_img{
+        max-width: 60%;
     }
 }
 
