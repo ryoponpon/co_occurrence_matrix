@@ -2,13 +2,17 @@ from flask import Flask, request, render_template, send_file, redirect, url_for
 import pandas as pd
 from itertools import combinations
 import os
+import shutil
+import tempfile
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = 'uploads'
-OUTPUT_FOLDER = 'outputs'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+# 一時的なアップロード用ディレクトリを作成
+UPLOAD_FOLDER = tempfile.mkdtemp()
+OUTPUT_FOLDER = tempfile.mkdtemp()
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -18,7 +22,7 @@ def index():
 
         for file in uploaded_files:
             if file and file.filename != '':
-                filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
                 file.save(filepath)
                 uploaded_filenames.append(file.filename)
 
@@ -56,7 +60,7 @@ def process_file(filepath, filename):
             co_occurrence_matrix.loc[item2, item1] = count
 
         # ファイル保存
-        output_filepath = os.path.join(OUTPUT_FOLDER, f"co_occurrence_matrix_{filename}")
+        output_filepath = os.path.join(app.config['OUTPUT_FOLDER'], f"co_occurrence_matrix_{filename}")
         co_occurrence_matrix.to_csv(output_filepath, encoding='utf-8-sig')
 
     except Exception as e:
@@ -65,12 +69,20 @@ def process_file(filepath, filename):
 @app.route('/complete')
 def complete():
     uploaded_files = request.args.getlist('uploaded_files')
-    output_files = os.listdir(OUTPUT_FOLDER)
+    output_files = os.listdir(app.config['OUTPUT_FOLDER'])
+    # アップロード後、処理が完了したら一時フォルダを削除
+    shutil.rmtree(app.config['UPLOAD_FOLDER'])
+    shutil.rmtree(app.config['OUTPUT_FOLDER'])
+
+    # 再作成する必要があれば、以下を有効にする
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
+
     return render_template('complete.html', uploaded_files=uploaded_files, output_files=output_files)
 
 @app.route('/download/<filename>')
 def download_file(filename):
-    file_path = os.path.join(OUTPUT_FOLDER, filename)
+    file_path = os.path.join(app.config['OUTPUT_FOLDER'], filename)
     if os.path.exists(file_path):
         return send_file(file_path, as_attachment=True)
     return "ファイルが見つかりません", 404
