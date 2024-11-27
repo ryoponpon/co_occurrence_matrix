@@ -12,6 +12,7 @@ body, html {
   align-items: center;
   background: linear-gradient(135deg, #74ebd5, #9face6);
   color: #333;
+  overflow-y: auto;
 }
 
 body {

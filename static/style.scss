@@ -17,6 +17,7 @@ body, html {
     align-items: center;
     background: $bg-gradient;
     color: $text-color;
+    overflow-y: auto;
 }
 
 body{
