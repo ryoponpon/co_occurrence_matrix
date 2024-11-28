@@ -5,6 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>共起行列生成アプリ</title>
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* インラインローディングアニメーション */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -13,17 +30,38 @@
             <p>CSVファイルをアップロードして処理を開始してください。複数ファイルの一括アップロードも可能です。</p>
         </header>
         <main>
-            <form action="/" method="post" enctype="multipart/form-data" id="upload-form">
-                <label for="files" class="custom-file-input">
-                    <span>📁 CSVファイルを選択</span>
-                    <input type="file" name="files" id="files" accept=".csv" multiple required>
-                </label>
-                <div id="file-list">
-                    <h2>選択されたファイル:</h2>
-                    <ul id="file-names"></ul>
+            <form id="upload-form">
+                <div class="upload-section">
+                    <label for="files" class="custom-file-input">
+                        <span>📁 CSVファイルを選択</span>
+                        <input type="file" name="files[]" id="files" accept=".csv" multiple required>
+                    </label>
+                    
+                    <!-- ファイルリスト -->
+                    <div id="file-list" style="display: none;">
+                        <h2>選択されたファイル:</h2>
+                        <ul id="file-names"></ul>
+                    </div>
+                    
+                    <!-- アップロードプログレス -->
+                    <div id="progress-container" style="display: none;">
+                        <h3>アップロード進捗</h3>
+                        <div class="progress">
+                            <div class="progress-bar" role="progressbar" style="width: 0%">0%</div>
+                        </div>
+                        <p id="upload-status">準備中...</p>
+                    </div>
+                    
+                    <!-- 処理ボタンとステータス -->
+                    <div id="process-section" style="display: none;">
+                        <button type="button" id="process-button" class="action-button">
+                            <span class="button-content">
+                                <span class="button-text">🚀 処理を開始</span>
+                            </span>
+                        </button>
+                        <p id="process-status" class="status-message" style="display: none;">処理中です...</p>
+                    </div>
                 </div>
-                <button type="submit" id="submit-button">🚀 処理を開始</button>
-                <p class="loading-message" id="loading-message" style="display: none;">処理中です。お待ちください...</p>
             </form>
         </main>
     </div>
@@ -37,22 +75,197 @@
     </div>
 
     <script>
-        const fileInput = document.getElementById('files');
-        const fileList = document.getElementById('file-names');
-        const fileListContainer = document.getElementById('file-list');
+        document.addEventListener('DOMContentLoaded', function() {
+            const uploadForm = document.getElementById('upload-form');
+            const fileInput = document.getElementById('files');
+            const fileList = document.getElementById('file-names');
+            const fileListContainer = document.getElementById('file-list');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.querySelector('.progress-bar');
+            const uploadStatus = document.getElementById('upload-status');
+            const processButton = document.getElementById('process-button');
+            const processSection = document.getElementById('process-section');
+            const processStatus = document.getElementById('process-status');
+            
+            let uploadedFiles = [];
 
-        fileInput.addEventListener('change', () => {
-            fileList.innerHTML = ''; // 既存のリストをクリア
-            const files = fileInput.files;
-            if (files.length > 0) {
-                fileListContainer.style.display = 'block'; // ファイルリストを表示
+            // ファイル選択時の処理
+            fileInput.addEventListener('change', function(e) {
+                const files = this.files;
+                if (files.length > 0) {
+                    displayFileList(files);
+                    uploadFiles(files);
+                } else {
+                    resetUI();
+                }
+            });
+
+            // ファイルリストの表示
+            function displayFileList(files) {
+                fileList.innerHTML = '';
                 Array.from(files).forEach(file => {
-                    const listItem = document.createElement('li');
-                    listItem.textContent = file.name;
-                    fileList.appendChild(listItem);
+                    const li = document.createElement('li');
+                    li.textContent = `${file.name} (${formatFileSize(file.size)})`;
+                    fileList.appendChild(li);
                 });
-            } else {
-                fileListContainer.style.display = 'none'; // ファイルリストを非表示
+                fileListContainer.style.display = 'block';
+            }
+
+            // ファイルサイズのフォーマット
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            // ファイルアップロード処理
+            async function uploadFiles(files) {
+                progressContainer.style.display = 'block';
+                processSection.style.display = 'none';
+                
+                const formData = new FormData();
+                Array.from(files).forEach(file => {
+                    formData.append('files[]', file);
+                });
+
+                try {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/upload', true);
+
+                    xhr.upload.onprogress = (e) => {
+                        if (e.lengthComputable) {
+                            const percentComplete = (e.loaded / e.total) * 100;
+                            updateProgress(percentComplete);
+                        }
+                    };
+
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            const response = JSON.parse(xhr.responseText);
+                            if (response.success) {
+                                uploadedFiles = response.files;
+                                completeUpload();
+                            } else {
+                                showError('アップロードに失敗しました');
+                            }
+                        } else {
+                            showError('サーバーエラーが発生しました');
+                        }
+                    };
+
+                    xhr.onerror = () => showError('ネットワークエラーが発生しました');
+                    xhr.send(formData);
+
+                } catch (error) {
+                    showError(`エラーが発生しました: ${error.message}`);
+                }
+            }
+
+            // プログレス更新
+            function updateProgress(percent) {
+                const roundedPercent = Math.round(percent);
+                progressBar.style.width = roundedPercent + '%';
+                progressBar.textContent = roundedPercent + '%';
+                uploadStatus.textContent = 'アップロード中...';
+            }
+
+            // アップロード完了処理
+            function completeUpload() {
+                uploadStatus.textContent = 'アップロード完了！';
+                progressBar.style.width = '100%';
+                progressBar.textContent = '100%';
+                processSection.style.display = 'block';
+            }
+
+            // エラー表示
+            function showError(message) {
+                uploadStatus.textContent = message;
+                uploadStatus.style.color = 'red';
+            }
+
+            // UI初期化
+            function resetUI() {
+                fileListContainer.style.display = 'none';
+                progressContainer.style.display = 'none';
+                processSection.style.display = 'none';
+                fileList.innerHTML = '';
+                progressBar.style.width = '0%';
+                progressBar.textContent = '0%';
+                uploadStatus.textContent = '';
+                uploadStatus.style.color = '';
+            }
+
+            // 処理開始ボタンのクリックハンドラ
+            processButton.addEventListener('click', async () => {
+                processButton.disabled = true;
+                processStatus.style.display = 'block';
+                processButton.querySelector('.button-content').innerHTML = `
+                    <div class="loading-spinner"></div>
+                    <span class="button-text">処理中...</span>
+                `;
+
+                try {
+                    const response = await fetch('/process', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ files: uploadedFiles })
+                    });
+
+                    const data = await response.json();
+                    if (data.success && data.redirect) {
+                        window.location.href = data.redirect;
+                    } else {
+                        throw new Error('処理に失敗しました');
+                    }
+                } catch (error) {
+                    showError(error.message);
+                    processButton.disabled = false;
+                    processStatus.style.display = 'none';
+                    processButton.querySelector('.button-content').innerHTML = `
+                        <span class="button-text">🚀 処理を開始</span>
+                    `;
+                }
+            });
+
+            // ドラッグ&ドロップ対応
+            const dropZone = document.querySelector('.custom-file-input');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight(e) {
+                dropZone.classList.add('highlight');
+            }
+
+            function unhighlight(e) {
+                dropZone.classList.remove('highlight');
+            }
+
+            dropZone.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                fileInput.files = files;
+                fileInput.dispatchEvent(new Event('change'));
             }
         });
     </script>
