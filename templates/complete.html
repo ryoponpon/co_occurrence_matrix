@@ -18,7 +18,7 @@
                 <ul>
                     {% for file in output_files %}
                     <li>
-                        {{ file }}
+                        {{ file | e }}
                         <a href="{{ url_for('download_file', filename=file) }}" class="button">📥 ダウンロード</a>
                     </li>
                     {% endfor %}

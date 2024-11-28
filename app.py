@@ -1,15 +1,15 @@
-from flask import Flask, request, render_template, send_file, redirect, url_for, session
+from flask import Flask, request, render_template, send_file, redirect, url_for, session, flash
+from werkzeug.utils import secure_filename
 import os
 import pandas as pd
 from itertools import combinations
 import tempfile
-import shutil
+from concurrent.futures import ThreadPoolExecutor
 
-# Flaskアプリケーションの初期設定
+# Flask アプリケーションの設定
 app = Flask(__name__)
-app.secret_key = "your_secret_key"  # セッション管理に必要なキー
+app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
 
-# 一時ディレクトリの設定
 UPLOAD_FOLDER = tempfile.mkdtemp()
 OUTPUT_FOLDER = tempfile.mkdtemp()
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -17,38 +17,20 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 最大16MB
+
+ALLOWED_EXTENSIONS = {'csv'}
+executor = ThreadPoolExecutor(max_workers=4)
 
 
-# ルートページ: ファイルアップロード
-@app.route("/", methods=["GET", "POST"])
-def index():
-    if request.method == "POST":
-        # 前回のファイルをクリーンアップ
-        cleanup_files()
-
-        # ファイルアップロード処理
-        uploaded_files = request.files.getlist("files")
-        saved_files = []
-
-        for file in uploaded_files:
-            if file and file.filename:
-                file_path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
-                file.save(file_path)
-                process_file(file_path, file.filename)
-                saved_files.append(file.filename)
-
-        # アップロードファイル情報をセッションに保存
-        session["uploaded_files"] = saved_files
-
-        return redirect(url_for("complete"))
-
-    return render_template("index.html")
+# ファイル拡張子の検証
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-# ファイル処理関数: 共起行列生成
-def process_file(filepath, filename):
+# ファイル処理関数
+def process_file(filepath, original_filename):
     try:
-        # CSVファイルの読み込み
         data = pd.read_csv(filepath)
         if "メール" not in data.columns or "キャンペーン名" not in data.columns:
             raise ValueError("CSVに必要な列が含まれていません: 'メール' と 'キャンペーン名'")
@@ -60,56 +42,78 @@ def process_file(filepath, filename):
             campaign_names = group["キャンペーン名"].unique()
             for item1, item2 in combinations(campaign_names, 2):
                 if item1 != item2:
-                    if (item1, item2) in co_occurrence_counts:
-                        co_occurrence_counts[(item1, item2)] += 1
-                    elif (item2, item1) in co_occurrence_counts:
-                        co_occurrence_counts[(item2, item1)] += 1
-                    else:
-                        co_occurrence_counts[(item1, item2)] = 1
+                    co_occurrence_counts[(item1, item2)] = co_occurrence_counts.get((item1, item2), 0) + 1
 
-        # 共起行列データフレームの生成
+        # 共起行列データフレーム生成
         campaigns = sorted(data["キャンペーン名"].unique())
         co_occurrence_matrix = pd.DataFrame(0, index=campaigns, columns=campaigns)
         for (item1, item2), count in co_occurrence_counts.items():
             co_occurrence_matrix.loc[item1, item2] = count
             co_occurrence_matrix.loc[item2, item1] = count
 
-        # 共起行列をCSVに保存
-        output_filepath = os.path.join(app.config["OUTPUT_FOLDER"], f"co_occurrence_matrix_{filename}")
+        # ファイルを元の名前に基づいて保存
+        output_filename = f"共起行列_{original_filename}"
+        output_filepath = os.path.join(app.config["OUTPUT_FOLDER"], output_filename)
         co_occurrence_matrix.to_csv(output_filepath, encoding="utf-8-sig")
-
+        return output_filename
     except Exception as e:
         print(f"エラー: {e}")
+        return None
 
 
-# 処理完了ページ
+# ルートページ
+@app.route("/", methods=["GET", "POST"])
+def index():
+    if request.method == "POST":
+        cleanup_files()
+        uploaded_files = request.files.getlist("files")
+        if not uploaded_files:
+            flash("ファイルが選択されていません。")
+            return redirect(request.url)
+
+        # 並列処理でファイルを処理
+        output_files = []
+        for file in uploaded_files:
+            if file and allowed_file(file.filename):
+                original_filename = file.filename
+                filename = secure_filename(original_filename)
+                file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+                file.save(file_path)
+                future = executor.submit(process_file, file_path, original_filename)
+                output_files.append(future)
+
+        # 処理結果を取得
+        session['output_files'] = [
+            future.result() for future in output_files if future.result() is not None
+        ]
+
+        return redirect(url_for("complete"))
+
+    return render_template("index.html")
+
+
+# 完了ページ
 @app.route("/complete")
 def complete():
-    output_files = session.get("uploaded_files", [])
-    available_files = os.listdir(app.config["OUTPUT_FOLDER"])
-    return render_template("complete.html", output_files=available_files)
+    output_files = session.get('output_files', [])
+    return render_template("complete.html", output_files=output_files)
 
 
 # ファイルのダウンロード
 @app.route("/download/<filename>")
 def download_file(filename):
-    file_path = os.path.join(app.config["OUTPUT_FOLDER"], filename)
-    if os.path.exists(file_path):
-        return send_file(file_path, as_attachment=True)
+    try:
+        file_path = os.path.join(app.config["OUTPUT_FOLDER"], filename)
+        if os.path.exists(file_path):
+            return send_file(file_path, as_attachment=True)
+    except Exception as e:
+        print(f"ダウンロードエラー: {e}")
     return "ファイルが見つかりません", 404
 
 
-# クリーンアップ処理
-@app.route("/cleanup", methods=["POST"])
-def cleanup():
-    cleanup_files()
-    session.pop("uploaded_files", None)
-    return redirect(url_for("index"))
-
-
+# ファイルクリーンアップ
 def cleanup_files():
     """一時フォルダ内のファイルを削除"""
-    # アップロードフォルダのクリーンアップ
     for folder in [app.config["UPLOAD_FOLDER"], app.config["OUTPUT_FOLDER"]]:
         for filename in os.listdir(folder):
             file_path = os.path.join(folder, filename)
@@ -117,6 +121,6 @@ def cleanup_files():
                 os.remove(file_path)
 
 
-# アプリケーションの実行
+# 実行
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False, host="0.0.0.0", port=5000)
