@@ -46,12 +46,12 @@ def process_file(filepath, original_filename):
     try:
         data = pd.read_csv(filepath, encoding='utf-8-sig')
         
-        if "メール" not in data.columns or "キャンペーン名" not in data.columns:
-            raise ValueError("CSVに必要な列が含まれていません: 'メール' と 'キャンペーン名'")
+        if "見込客/担当者ID18" not in data.columns or "キャンペーン名" not in data.columns:
+            raise ValueError("CSVに必要な列が含まれていません: '見込客/担当者ID18' と 'キャンペーン名'")
 
-        data = data[["メール", "キャンペーン名"]]
+        data = data[["見込客/担当者ID18", "キャンペーン名"]]
         co_occurrence_counts = {}
-        for _, group in data.groupby("メール"):
+        for _, group in data.groupby("見込客/担当者ID18"):
             campaign_names = group["キャンペーン名"].unique()
             for item1, item2 in combinations(campaign_names, 2):
                 if item1 != item2:
