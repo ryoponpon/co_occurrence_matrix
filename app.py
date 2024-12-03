@@ -248,4 +248,4 @@ def download_file(filename):
         return "ダウンロードに失敗しました", 500
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)
