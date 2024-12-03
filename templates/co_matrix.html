@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>共起行列生成ツール</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 共起行列生成ツール</h1>
+            <p>CSVファイルをアップロードして共起行列を生成します。</p>
+        </header>
+
+        <main>
+            <form id="upload-form">
+                <div class="upload-section">
+                    <label for="files" class="custom-file-input">
+                        <div class="upload-icon">
+                            <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                        </div>
+                        <p class="upload-text">CSVファイルをドラッグ＆ドロップ</p>
+                        <p class="upload-subtext">または</p>
+                        <input type="file" name="files[]" id="files" accept=".csv" multiple required>
+                        <label for="files" class="file-input-label">ファイルを選択してください</label>
+                    </label>
+
+                    <div id="file-list" style="display: none;">
+                        <h2>選択されたファイル:</h2>
+                        <ul id="file-names"></ul>
+                    </div>
+
+                    <div id="progress-container" style="display: none;">
+                        <h3>アップロード進捗</h3>
+                        <div class="progress">
+                            <div class="progress-bar" role="progressbar" style="width: 0%">0%</div>
+                        </div>
+                        <p id="upload-status">準備中...</p>
+                    </div>
+                    
+                    <div id="process-section" style="display: none;">
+                        <button type="button" id="process-button" class="action-button">
+                            <span class="button-content">
+                                <span class="button-text">🚀 処理開始</span>
+                            </span>
+                        </button>
+                        <p id="process-status" class="status-message" style="display: none;">処理中です...</p>
+                    </div>
+                </div>
+            </form>
+
+            <div class="tool-links">
+                <a href="{{ url_for('campaign') }}" class="tool-link">
+                    元データ整形ツールへ
+                </a>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+</body>
+</html>

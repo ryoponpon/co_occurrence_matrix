@@ -1,0 +1,516 @@
+// Variables
+$primary-color: #4fc3f7; // サイバーブルー
+$secondary-color: #212121; // ダークグレー
+$accent-color: #ff4081; // ピンクアクセント
+$success-color: #4caf50; // 成功時グリーン
+$warning-color: #fdd835; // 警告イエロー
+$error-color: #f44336; // エラーレッド
+$background-color: #121212; // ダーク背景
+$light-gray: #bdbdbd; // ライトグレー
+$text-color: #e0e0e0; // 明るいテキスト
+$border-radius: 12px;
+$transition-duration: 0.3s;
+$shadow-color: rgba(0, 0, 0, 0.6);
+$box-shadow: 0 4px 8px $shadow-color, 0 6px 20px $shadow-color;
+
+// Mixins
+@mixin flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@mixin button-base {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 24px;
+    border-radius: $border-radius;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all $transition-duration ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+@mixin card {
+    background: linear-gradient(145deg, #1e1e1e, #2a2a2a);
+    border-radius: $border-radius;
+    box-shadow: $box-shadow;
+    padding: 1.5rem;
+    color: $text-color;
+}
+
+// Animations
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-5px);
+    }
+}
+
+@keyframes glow {
+    0%, 100% {
+        box-shadow: 0 0 10px $primary-color;
+    }
+    50% {
+        box-shadow: 0 0 20px $primary-color;
+    }
+}
+
+// Base styles
+body {
+    font-family: "Poppins", sans-serif;
+    background-color: $background-color;
+    color: $text-color;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+}
+
+// Container
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+
+    @media (max-width: 768px) {
+        padding: 1rem;
+    }
+}
+
+// Header
+header {
+    text-align: center;
+    margin-bottom: 3rem;
+
+    h1 {
+        font-size: 2.5rem;
+        color: $primary-color;
+        text-shadow: 0 2px 4px $shadow-color;
+        animation: glow 2s infinite ease-in-out;
+        margin-bottom: 1rem;
+
+        @media (max-width: 768px) {
+            font-size: 2rem;
+        }
+    }
+
+    p {
+        color: lighten($text-color, 20%);
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+    }
+}
+
+// Tool links
+.tool-links {
+    text-align: center;
+    margin: 2rem 0;
+
+    .tool-link {
+        @include button-base;
+        background: linear-gradient(90deg, $primary-color, $accent-color);
+        color: white;
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+
+        &:hover {
+            background: linear-gradient(90deg, $accent-color, $primary-color);
+            transform: translateY(-5px);
+            animation: float 1s ease-in-out infinite;
+        }
+    }
+}
+
+
+
+// Upload Section
+.upload-section {
+    @include card;
+    text-align: center;
+    
+
+    .custom-file-input {
+        display: inline-block;
+        border: 2px dashed lighten($primary-color, 20%);
+        padding: 2rem;
+        border-radius: $border-radius;
+        cursor: pointer;
+        transition: all $transition-duration ease;
+
+        &:hover {
+            border-color: $primary-color;
+            background: rgba($primary-color, 0.05);
+        }
+
+        .upload-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: $primary-color;
+            animation: glow 2s infinite ease-in-out;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            color: lighten($text-color, 20%);
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-subtext {
+            font-size: 0.9rem;
+            color: $light-gray;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+    }
+}
+
+// File List
+.file-list {
+    margin-top: 2rem;
+
+    .file-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: $border-radius;
+        margin-bottom: 0.5rem;
+        transition: transform $transition-duration ease, background $transition-duration ease;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(10px);
+        }
+    }
+}
+
+// Progress Bar
+.progress {
+    height: 20px;
+    background: rgba($primary-color, 0.3);
+    border-radius: $border-radius;
+    overflow: hidden;
+    margin: 1rem 0;
+
+    &-bar {
+        height: 100%;
+        background: $primary-color;
+        transition: width 0.3s ease;
+        text-align: center;
+        color: white;
+        font-size: 0.8rem;
+        line-height: 20px;
+    }
+}
+
+// Button
+.action-button {
+    @include button-base;
+    background: linear-gradient(90deg, $primary-color, $accent-color);
+    color: white;
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+
+    &:hover {
+        background: linear-gradient(90deg, $accent-color, $primary-color);
+        transform: translateY(-5px);
+        animation: float 1s ease-in-out infinite;
+    }
+}
+
+// Notice
+.notice {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: rgba($warning-color, 0.1);
+    border: 1px solid rgba($warning-color, 0.2);
+    border-radius: $border-radius;
+    text-align: center;
+
+    p {
+        color: $warning-color;
+        font-size: 0.9rem;
+        margin: 0;
+    }
+}
+
+
+//FOR COMPLETE PAGE
+
+// Variables
+$primary-color: #4fc3f7;
+$secondary-color: #212121;
+$accent-color: #ff4081;
+$success-color: #4caf50;
+$warning-color: #fdd835;
+$error-color: #f44336;
+$background-color: #121212;
+$light-gray: #bdbdbd;
+$text-color: #e0e0e0;
+$border-radius: clamp(8px, 2vw, 12px); // レスポンシブな角丸
+$transition-duration: 0.3s;
+$shadow-color: rgba(0, 0, 0, 0.6);
+$box-shadow: 0 4px 8px $shadow-color, 0 6px 20px $shadow-color;
+
+// カラーパレットの拡張
+$gradient-primary: linear-gradient(135deg, $primary-color, adjust-hue($primary-color, 15deg));
+$gradient-accent: linear-gradient(135deg, $accent-color, adjust-hue($accent-color, 15deg));
+
+// Modern CSS Custom Properties
+:root {
+    --content-width: min(100% - 2rem, 1200px);
+    --spacing-unit: clamp(0.5rem, 2vw, 1.5rem);
+    --header-height: clamp(60px, 10vh, 100px);
+}
+
+// Mixins
+@mixin flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@mixin glass-effect {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@mixin button-base {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(0.75rem, 2vw, 1.2rem) clamp(1.5rem, 3vw, 2.4rem);
+    border-radius: $border-radius;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all $transition-duration cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transform: translateX(-100%);
+        transition: 0.6s;
+    }
+
+    &:hover::before {
+        transform: translateX(100%);
+    }
+}
+
+@mixin card {
+    background: linear-gradient(145deg, #1e1e1e, #2a2a2a);
+    border-radius: $border-radius;
+    box-shadow: $box-shadow;
+    padding: var(--spacing-unit);
+    color: $text-color;
+    transition: transform 0.3s ease;
+    
+    @supports (backdrop-filter: blur(10px)) {
+        background: rgba(30, 30, 30, 0.8);
+        backdrop-filter: blur(10px);
+    }
+}
+
+// Modern Animations
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0) rotate(0deg);
+    }
+    50% {
+        transform: translateY(-5px) rotate(1deg);
+    }
+}
+
+@keyframes glow {
+    0%, 100% {
+        filter: drop-shadow(0 0 10px $primary-color);
+    }
+    50% {
+        filter: drop-shadow(0 0 20px $primary-color);
+    }
+}
+
+// Base styles with modern reset
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "Poppins", system-ui, -apple-system, sans-serif;
+    background-color: $background-color;
+    color: $text-color;
+    line-height: 1.6;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+// Container with modern layout
+.container {
+    width: var(--content-width);
+    margin-inline: auto;
+    padding: var(--spacing-unit);
+}
+
+// Modern Header
+header {
+    text-align: center;
+    margin-block-end: 3rem;
+    position: relative;
+
+    h1 {
+        font-size: clamp(2rem, 5vw, 2.5rem);
+        color: $primary-color;
+        text-shadow: 0 2px 4px $shadow-color;
+        animation: glow 2s infinite ease-in-out;
+        margin-bottom: 1rem;
+        
+        @supports (background-clip: text) {
+            background-image: $gradient-primary;
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+    }
+
+    p {
+        color: color-mix(in srgb, $text-color 80%, white);
+        font-size: clamp(1rem, 2vw, 1.1rem);
+        max-width: 65ch;
+        margin-inline: auto;
+    }
+}
+
+// Result Section
+.result-section {
+    @include card;
+    margin-block: 2rem;
+
+    .result-files {
+        h2 {
+            font-size: clamp(1.5rem, 3vw, 2rem);
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        ul {
+            list-style: none;
+            display: grid;
+            gap: 1rem;
+        }
+    }
+}
+
+// File Item
+.file-item {
+    @include glass-effect;
+    padding: var(--spacing-unit);
+    border-radius: $border-radius;
+    transition: all $transition-duration ease;
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .file-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+
+        @media (max-width: 768px) {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+
+    .download-button {
+        @include button-base;
+        background: $gradient-primary;
+        color: white;
+        font-size: 0.9rem;
+        gap: 0.5rem;
+
+        &:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+    }
+}
+
+// Actions
+.actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-block: 2rem;
+
+    .tool-link {
+        @include button-base;
+        background: $gradient-accent;
+        color: white;
+        text-align: center;
+        
+        &:hover {
+            transform: translateY(-3px);
+            animation: float 1s ease-in-out infinite;
+        }
+    }
+}
+
+// Notice
+.notice {
+    @include glass-effect;
+    margin-top: 2rem;
+    padding: var(--spacing-unit);
+    border-radius: $border-radius;
+    text-align: center;
+
+    .notice-text {
+        color: $warning-color;
+        font-size: 0.9rem;
+        max-width: 65ch;
+        margin-inline: auto;
+    }
+}
+
+// Utility Classes
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+// Dark Mode Support
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: dark;
+    }
+}

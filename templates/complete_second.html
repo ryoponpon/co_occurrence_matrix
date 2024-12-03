@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>処理完了 - 元データ整形ツール</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>✅ 処理が完了しました！</h1>
+            <p>以下のファイルが生成されました。</p>
+        </header>
+
+        <main>
+            <section class="result-section">
+                {% if output_files %}
+                    <div class="result-files">
+                        <h2>ダウンロード可能なファイル</h2>
+                        <ul>
+                            {% for file in output_files %}
+                                <li class="file-item">
+                                    <div class="file-info">
+                                        <span class="file-name">{{ file | e }}</span>
+                                        <a href="{{ url_for('download_file', filename=file) }}" class="download-button">
+                                            <span class="download-icon">📥</span>
+                                            ダウンロード
+                                        </a>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% else %}
+                    <div class="no-files">
+                        <p>処理結果ファイルがありません。</p>
+                    </div>
+                {% endif %}
+            </section>
+
+            <div class="actions">
+                <a href="{{ url_for('campaign') }}" class="tool-link">
+                    <span class="button-icon">🔄</span>
+                    他のファイルを処理
+                </a>
+                <a href="{{ url_for('index') }}" class="tool-link">
+                    <span class="button-icon">📊</span>
+                    共起行列生成ツールへ
+                </a>
+            </div>
+
+            <div class="notice">
+                <p class="notice-text">
+                    ※ダウンロードしたファイルは一定時間後に自動的に削除されます。
+                    必要なファイルは必ずダウンロードしてください。
+                </p>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+</body>
+</html>
