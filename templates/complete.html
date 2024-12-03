@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>処理完了 - 共起行列生成アプリ</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>✅ 処理が完了しました！</h1>
+            <p>以下のファイルが生成されました。</p>
+        </header>
+        <main>
+            <section>
+                <h2>ダウンロード可能なファイル</h2>
+                <ul>
+                    {% for file in output_files %}
+                    <li>
+                        {{ file | e }}
+                        <a href="{{ url_for('download_file', filename=file) }}" class="button">📥 ダウンロード</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </section>
+            <a href="/" class="else-button">🔄 他のファイルをアップロード</a>
+        </main>
+    </div>
+</body>
+</html>
