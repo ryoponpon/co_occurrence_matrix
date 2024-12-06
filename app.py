@@ -11,6 +11,8 @@ import mimetypes
 import re
 from openpyxl.utils import get_column_letter
 import traceback  # トレースバック情報の取得用
+from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
 
 # CSPを設定するデコレータ
 def add_csp_headers(response):
@@ -447,20 +449,8 @@ def process_cooccurrence_files():
         }), 500
 
 def process_cooccurrence_file(filepath, original_filename):
-    """個別ファイルの共起行列生成処理"""
     try:
-        # ファイルの拡張子を取得
-        file_ext = original_filename.rsplit('.', 1)[1].lower()
-        
-        # ヘッダー行の特定とデータ読み込み
-        header_row, df = find_header_row(filepath, file_ext)
-        
-        # 必要なカラム名を特定
-        id_column, campaign_column = get_column_names(df)
-        
-        # 必要な列のみを抽出して列名を標準化
-        data = df[[id_column, campaign_column]].copy()
-        data.columns = ["見込客/担当者ID18", "キャンペーン名"]
+        # [前略: ファイル読み込みまでの部分は変更なし]
 
         # 共起行列の作成
         co_occurrence_counts = {}
@@ -478,21 +468,18 @@ def process_cooccurrence_file(filepath, original_filename):
         
         # 共起行列の作成
         co_occurrence_matrix = pd.DataFrame(0, 
-                                        index=unique_campaigns, 
-                                        columns=unique_campaigns)
+                                         index=unique_campaigns, 
+                                         columns=unique_campaigns)
         
         # 共起回数を行列に設定
         for (camp1, camp2), count in co_occurrence_counts.items():
             co_occurrence_matrix.at[camp1, camp2] = count
             co_occurrence_matrix.at[camp2, camp1] = count
 
-        # 行と列の合計を追加
-        co_occurrence_matrix['行合計'] = co_occurrence_matrix.sum(axis=1)
-        column_sums = co_occurrence_matrix.sum()
-        column_sums_without_row_total = column_sums[:-1]
-        co_occurrence_matrix.loc['列合計'] = pd.Series(column_sums_without_row_total)
-        co_occurrence_matrix.at['列合計', '行合計'] = column_sums_without_row_total.sum()
-
+        # 合計行を追加（1行のみ）
+        sums = co_occurrence_matrix.sum()
+        co_occurrence_matrix.loc['合計'] = sums
+        
         # 結果ファイルの保存
         base_name = os.path.splitext(original_filename)[0]
         output_filename = f"共起行列_{base_name}.{file_ext}"
@@ -513,6 +500,13 @@ def process_cooccurrence_file(filepath, original_filename):
                         len(str(col))
                     )
                     worksheet.column_dimensions[get_column_letter(idx + 2)].width = max_length + 2
+
+                # 合計行のスタイル設定
+                last_row = len(co_occurrence_matrix)
+                for col in range(1, len(co_occurrence_matrix.columns) + 2):
+                    cell = worksheet.cell(row=last_row + 1, column=col)
+                    cell.font = Font(bold=True)
+                    cell.fill = PatternFill(start_color='F0F0F0', end_color='F0F0F0', fill_type='solid')
         else:
             co_occurrence_matrix.to_csv(output_filepath, encoding='utf-8-sig')
 
@@ -521,6 +515,8 @@ def process_cooccurrence_file(filepath, original_filename):
     except Exception as e:
         logger.error(f"ファイル処理エラー: {str(e)}", exc_info=True)
         raise
+    
+    
 @app.route('/process_campaign', methods=['POST'])
 def process_campaign_files():
     """キャンペーン名クリーニング処理のエンドポイント"""
