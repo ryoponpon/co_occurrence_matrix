@@ -10,11 +10,6 @@ import logging
 import mimetypes
 import re
 
-# CSPヘッダーを設定する関数
-def add_security_headers(response):
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';"
-    return response
-
 # ロギングの設定
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -47,6 +42,12 @@ app.config.update(
 
 ALLOWED_EXTENSIONS = {'csv', 'xlsx'}
 executor = ThreadPoolExecutor(max_workers=4)
+
+# Flaskアプリケーションで、より緩和されたCSP設定を適用
+@app.after_request
+def add_security_headers(response):
+    response.headers['Content-Security-Policy'] = "default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' chrome-extension:; style-src 'self' 'unsafe-inline'; connect-src 'self' https:;"
+    return response
 
 # ユーティリティ関数
 def allowed_file(filename):
@@ -318,32 +319,50 @@ def process_cooccurrence_files():
 
 @app.route('/process_campaign', methods=['POST'])
 def process_campaign_files():
-    """キャンペーン名クリーニング処理"""
     try:
-        filenames = request.json.get('files', [])
+        # リクエストの詳細をログ出力
+        logger.info(f"Received request: {request.get_json()}")
+        
+        if not request.is_json:
+            logger.error("Invalid request format: Not JSON")
+            return jsonify({
+                'success': False,
+                'error': '無効なリクエスト形式です'
+            }), 400
+
+        data = request.get_json()
+        filenames = data.get('files', [])
+        
+        # リクエストの検証
+        logger.info(f"Processing files: {filenames}")
+        
         if not filenames:
-            return jsonify({'error': '処理するファイルがありません'}), 400
+            logger.error("No files provided")
+            return jsonify({
+                'success': False,
+                'error': '処理するファイルがありません'
+            }), 400
 
         output_files = []
         errors = []
-        
+
         for filename in filenames:
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            if os.path.exists(filepath):
-                try:
-                    future = executor.submit(process_campaign_file, filepath, filename)
-                    output_files.append(future)
-                except Exception as e:
-                    errors.append(f"{filename}: {str(e)}")
-        
-        results = []
-        for future in output_files:
             try:
-                result = future.result()
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                if not os.path.exists(filepath):
+                    error_msg = f"ファイルが見つかりません: {filename}"
+                    logger.error(error_msg)
+                    errors.append(error_msg)
+                    continue
+
+                result = process_campaign_file(filepath, filename)
                 if result:
-                    results.append(result)
+                    output_files.append(result)
+                    logger.info(f"Successfully processed file: {filename}")
             except Exception as e:
-                errors.append(str(e))
+                error_msg = f"ファイル処理エラー ({filename}): {str(e)}"
+                logger.error(error_msg, exc_info=True)
+                errors.append(error_msg)
 
         if errors:
             return jsonify({
@@ -351,16 +370,28 @@ def process_campaign_files():
                 'errors': errors
             }), 400
 
-        session['output_files'] = results
+        if not output_files:
+            return jsonify({
+                'success': False,
+                'error': '処理可能なファイルがありませんでした'
+            }), 400
+
+        session['output_files'] = output_files
         
-        return jsonify({
+        response_data = {
             'success': True,
             'redirect': url_for('complete_campaign')
-        })
+        }
+        logger.info(f"Processing complete. Response: {response_data}")
+        return jsonify(response_data)
 
     except Exception as e:
-        logger.error(f"処理エラー: {str(e)}", exc_info=True)
-        return jsonify({'error': f'処理中にエラーが発生しました: {str(e)}'}), 500
+        error_msg = f"処理エラー: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': error_msg
+        }), 500
 
 @app.route("/complete_cooccurrence")
 def complete_cooccurrence():
