@@ -46,9 +46,28 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const showError = (message) => {
-        uploadStatus.textContent = message;
-        uploadStatus.style.color = 'red';
-        console.error('Error:', message);
+        console.error('Error details:', message);
+        if (uploadStatus) {
+            uploadStatus.textContent = message;
+            uploadStatus.style.color = 'red';
+        }
+        // エラーメッセージをより目立つように表示
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.style.color = 'red';
+        errorDiv.style.padding = '10px';
+        errorDiv.style.marginTop = '10px';
+        errorDiv.style.border = '1px solid red';
+        errorDiv.textContent = message;
+        
+        // 既存のエラーメッセージがあれば削除
+        const existingError = document.querySelector('.error-message');
+        if (existingError) {
+            existingError.remove();
+        }
+        
+        // 新しいエラーメッセージを追加
+        processSection.parentNode.insertBefore(errorDiv, processSection);
     };
 
     const resetUI = () => {
@@ -75,73 +94,124 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ファイルアップロード処理
     const uploadFiles = async (files) => {
+        if (!files || files.length === 0) {
+            showError('ファイルが選択されていません');
+            return;
+        }
+    
         progressContainer.style.display = 'block';
         processSection.style.display = 'none';
         const formData = new FormData();
-        Array.from(files).forEach(file => formData.append('files[]', file));
-
+        
+        // ファイルの検証
+        for (let file of files) {
+            if (!file.name.match(/\.(csv|xlsx)$/i)) {
+                showError('未対応のファイル形式です。CSVまたはXLSXファイルを選択してください。');
+                return;
+            }
+            formData.append('files[]', file);
+        }
+    
         try {
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/upload', true);
-
+    
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
                     updateProgress((e.loaded / e.total) * 100);
                 }
             };
-
+    
             xhr.onload = () => {
-                if (xhr.status === 200) {
-                    try {
-                        const response = JSON.parse(xhr.responseText);
-                        if (response.success) {
-                            uploadedFiles = response.files;
-                            completeUpload();
-                        } else {
-                            showError(response.error || 'アップロードに失敗しました');
-                        }
-                    } catch (e) {
-                        showError('レスポンスの解析に失敗しました');
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    console.log('Upload response:', response);  // デバッグ用
+    
+                    if (xhr.status === 200 && response.success) {
+                        uploadedFiles = response.files;
+                        completeUpload();
+                    } else {
+                        showError(response.error || 'アップロードに失敗しました');
                     }
-                } else {
-                    showError(`サーバーエラー: ${xhr.status}`);
+                } catch (e) {
+                    console.error('Response parsing error:', e);
+                    showError('レスポンスの解析に失敗しました');
                 }
             };
-
-            xhr.onerror = () => showError('ネットワークエラーが発生しました');
+    
+            xhr.onerror = () => {
+                console.error('XHR error:', xhr.statusText);
+                showError('ネットワークエラーが発生しました');
+            };
+    
             xhr.send(formData);
         } catch (error) {
+            console.error('Upload error:', error);
             showError(`エラーが発生しました: ${error.message}`);
         }
     };
 
     // ファイル処理
     const processFiles = async () => {
+        if (!uploadedFiles || uploadedFiles.length === 0) {
+            showError('処理するファイルがありません');
+            return;
+        }
+    
         try {
             const isMatrixTool = document.title.includes('共起行列');
             const endpoint = isMatrixTool ? '/process_cooccurrence' : '/process_campaign';
             
+            // 処理状態の更新
+            processButton.disabled = true;
+            processStatus.style.display = 'block';
+            processButton.querySelector('.button-content').innerHTML = `
+                <div class="loading-spinner"></div>
+                <span class="button-text">処理中...</span>
+            `;
+    
+            // デバッグ用にリクエストの内容を出力
+            console.log('Request payload:', { files: uploadedFiles });
+    
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify({ files: uploadedFiles })
+                credentials: 'include',  // セッションCookieを含める
+                body: JSON.stringify({ 
+                    files: uploadedFiles,
+                    timestamp: new Date().getTime() // リクエストの一意性を確保
+                })
             });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+    
+            // レスポンスの詳細をデバッグ出力
+            console.log('Response status:', response.status);
+            
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('サーバーからの応答が不正です');
             }
-
+    
             const data = await response.json();
+            console.log('Response data:', data);
+    
+            if (!response.ok) {
+                throw new Error(data.error || `サーバーエラー (${response.status})`);
+            }
+    
             if (data.success && data.redirect) {
                 window.location.href = data.redirect;
             } else {
                 throw new Error(data.error || '処理に失敗しました');
             }
+    
         } catch (error) {
-            showError(error.message);
+            console.error('Processing error:', error);
+            showError(error.message || 'ファイルの処理中にエラーが発生しました');
+        } finally {
+            // エラー時のUI復帰
             processButton.disabled = false;
             processStatus.style.display = 'none';
             processButton.querySelector('.button-content').innerHTML = `
