@@ -171,41 +171,41 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const isMatrixTool = document.title.includes('共起行列');
             const endpoint = isMatrixTool ? '/process_cooccurrence' : '/process_campaign';
-            
-            // 処理状態の更新
-            processButton.disabled = true;
-            processStatus.style.display = 'block';
-            processButton.querySelector('.button-content').innerHTML = `
-                <div class="loading-spinner"></div>
-                <span class="button-text">処理中...</span>
-            `;
     
-            // デバッグ用にリクエストの内容を出力
-            console.log('Request payload:', { files: uploadedFiles });
+            // 処理状態の更新
+            if (processButton) {
+                processButton.disabled = true;
+            }
+            if (processStatus) {
+                processStatus.style.display = 'block';
+            }
+    
+            console.log('Sending request:', {
+                endpoint,
+                files: uploadedFiles
+            });
     
             const response = await fetch(endpoint, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
-                credentials: 'include',  // セッションCookieを含める
-                body: JSON.stringify({ 
-                    files: uploadedFiles,
-                    timestamp: new Date().getTime() // リクエストの一意性を確保
-                })
+                credentials: 'include',
+                body: JSON.stringify({ files: uploadedFiles })
             });
     
-            // レスポンスの詳細をデバッグ出力
-            console.log('Response status:', response.status);
-            
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                throw new Error('サーバーからの応答が不正です');
-            }
+            // レスポンスの内容をログ出力（デバッグ用）
+            const responseText = await response.text();
+            console.log('Raw response:', responseText);
     
-            const data = await response.json();
-            console.log('Response data:', data);
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (e) {
+                console.error('JSON parse error:', e);
+                throw new Error('サーバーからの応答を解析できませんでした');
+            }
     
             if (!response.ok) {
                 throw new Error(data.error || `サーバーエラー (${response.status})`);
@@ -221,15 +221,21 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Processing error:', error);
             showError(error.message || 'ファイルの処理中にエラーが発生しました');
         } finally {
-            // エラー時のUI復帰
-            processButton.disabled = false;
-            processStatus.style.display = 'none';
-            processButton.querySelector('.button-content').innerHTML = `
-                <span class="button-text">🚀 処理を開始</span>
-            `;
+            // UI状態のリセット
+            if (processButton) {
+                processButton.disabled = false;
+            }
+            if (processStatus) {
+                processStatus.style.display = 'none';
+            }
+            if (processButton?.querySelector('.button-content')) {
+                processButton.querySelector('.button-content').innerHTML = `
+                    <span class="button-text">🚀 処理を開始</span>
+                `;
+            }
         }
     };
-
+    
     // イベントリスナー
     fileInput?.addEventListener('change', (e) => {
         const selectedFiles = e.target.files;

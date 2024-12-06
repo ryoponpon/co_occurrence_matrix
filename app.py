@@ -373,22 +373,32 @@ def upload_file():
 def process_cooccurrence_files():
     """共起行列生成処理のエンドポイント"""
     try:
+        # リクエストのバリデーション
         if not request.is_json:
             return jsonify({
                 'success': False,
                 'error': '無効なリクエスト形式です'
             }), 400
 
-        filenames = request.json.get('files', [])
+        data = request.get_json()
+        if not data or 'files' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'ファイル情報が含まれていません'
+            }), 400
+
+        filenames = data['files']
         if not filenames:
             return jsonify({
                 'success': False,
                 'error': '処理するファイルがありません'
             }), 400
 
+        # 処理結果の追跡
         output_files = []
         errors = []
 
+        # 各ファイルを処理
         for filename in filenames:
             try:
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -396,35 +406,37 @@ def process_cooccurrence_files():
                     errors.append(f"ファイルが見つかりません: {filename}")
                     continue
 
-                # 個別のファイル処理
-                output_filename = process_cooccurrence_file(filepath, filename)
-                if output_filename:
-                    output_files.append(output_filename)
+                result = process_cooccurrence_file(filepath, filename)
+                if result:
+                    output_files.append(result)
+                    logger.info(f"処理成功: {filename} -> {result}")
 
             except Exception as e:
-                logger.error(f"ファイル処理エラー ({filename}): {str(e)}", exc_info=True)
-                errors.append(f"{filename}: {str(e)}")
+                error_msg = f"{filename}: {str(e)}"
+                logger.error(f"ファイル処理エラー: {error_msg}", exc_info=True)
+                errors.append(error_msg)
 
-        if errors and not output_files:
+        # 処理結果の確認と応答の生成
+        if not output_files and errors:
             return jsonify({
                 'success': False,
+                'error': '全てのファイルの処理に失敗しました',
                 'errors': errors
             }), 400
 
-        # 成功したファイルがある場合は処理を継続
-        if output_files:
-            session['output_files'] = output_files
-            return jsonify({
-                'success': True,
-                'redirect': url_for('complete_cooccurrence'),
-                'processed_files': output_files,
-                'errors': errors if errors else None
-            })
+        # セッションに結果を保存
+        session['output_files'] = output_files
+        
+        response_data = {
+            'success': True,
+            'redirect': url_for('complete_cooccurrence'),
+            'processed_files': output_files
+        }
+        if errors:
+            response_data['warnings'] = errors
 
-        return jsonify({
-            'success': False,
-            'error': '処理可能なファイルがありませんでした'
-        }), 400
+        logger.info(f"処理完了 - レスポンス: {response_data}")
+        return jsonify(response_data)
 
     except Exception as e:
         logger.error(f"予期せぬエラー: {str(e)}", exc_info=True)
