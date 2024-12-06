@@ -13,6 +13,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const dropZone = document.querySelector('.custom-file-input');
     let uploadedFiles = [];
 
+    window.addEventListener('error', function(event) {
+        console.error('Script error:', event.error);
+        // エラーが Chrome 拡張機能関連の場合は無視
+        if (event.filename?.includes('chrome-extension://')) {
+            event.preventDefault();
+            return;
+        }
+    });
+
+
     // ユーティリティ関数
     const preventDefaults = (e) => {
         e.preventDefault();
