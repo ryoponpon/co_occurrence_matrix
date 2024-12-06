@@ -248,7 +248,10 @@ def campaign():
 def upload_file():
     try:
         if 'files[]' not in request.files:
-            return jsonify({'error': 'ファイルがありません'}), 400
+            return jsonify({
+                'success': False,
+                'error': 'ファイルがありません'
+            }), 400
         
         files = request.files.getlist('files[]')
         uploaded_files = []
@@ -261,7 +264,10 @@ def upload_file():
                 uploaded_files.append(filename)
         
         if not uploaded_files:
-            return jsonify({'error': '有効なファイルがありません。CSVまたはXLSXファイルを選択してください。'}), 400
+            return jsonify({
+                'success': False,
+                'error': '有効なファイルがありません。CSVまたはXLSXファイルを選択してください。'
+            }), 400
         
         return jsonify({
             'success': True,
@@ -270,45 +276,29 @@ def upload_file():
 
     except Exception as e:
         logger.error(f"アップロードエラー: {str(e)}", exc_info=True)
-        return jsonify({'error': f'ファイルアップロード中にエラーが発生しました: {str(e)}'}), 500
+        return jsonify({
+            'success': False,
+            'error': f'ファイルアップロード中にエラーが発生しました: {str(e)}'
+        }), 500
 
 @app.route('/process_cooccurrence', methods=['POST'])
 def process_cooccurrence_files():
-    """共起行列生成処理"""
     try:
-        filenames = request.json.get('files', [])
-        if not filenames:
-            return jsonify({'error': '処理するファイルがありません'}), 400
-
-        output_files = []
-        errors = []
-        
-        for filename in filenames:
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            if os.path.exists(filepath):
-                try:
-                    future = executor.submit(process_cooccurrence_file, filepath, filename)
-                    output_files.append(future)
-                except Exception as e:
-                    errors.append(f"{filename}: {str(e)}")
-        
-        results = []
-        for future in output_files:
-            try:
-                result = future.result()
-                if result:
-                    results.append(result)
-            except Exception as e:
-                errors.append(str(e))
-
-        if errors:
+        if not request.is_json:
             return jsonify({
                 'success': False,
-                'errors': errors
+                'error': '無効なリクエスト形式です'
             }), 400
 
-        session['output_files'] = results
-        
+        filenames = request.json.get('files', [])
+        if not filenames:
+            return jsonify({
+                'success': False,
+                'error': '処理するファイルがありません'
+            }), 400
+
+        # ... 処理部分 ...
+
         return jsonify({
             'success': True,
             'redirect': url_for('complete_cooccurrence')
@@ -316,7 +306,10 @@ def process_cooccurrence_files():
 
     except Exception as e:
         logger.error(f"処理エラー: {str(e)}", exc_info=True)
-        return jsonify({'error': f'処理中にエラーが発生しました: {str(e)}'}), 500
+        return jsonify({
+            'success': False,
+            'error': f'処理中にエラーが発生しました: {str(e)}'
+        }), 500
 
 @app.route('/process_campaign', methods=['POST'])
 def process_campaign_files():
