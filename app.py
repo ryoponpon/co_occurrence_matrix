@@ -10,6 +10,7 @@ import logging
 import mimetypes
 import re
 from openpyxl.utils import get_column_letter
+import traceback  # トレースバック情報の取得用
 
 # CSPを設定するデコレータ
 def add_csp_headers(response):
@@ -522,75 +523,87 @@ def process_cooccurrence_file(filepath, original_filename):
         raise
 @app.route('/process_campaign', methods=['POST'])
 def process_campaign_files():
+    """キャンペーン名クリーニング処理のエンドポイント"""
     try:
-        # リクエストの詳細をログ出力
-        logger.info(f"Received request: {request.get_json()}")
-        
+        # リクエストのログ出力
+        logger.info(f"Received request: {request.get_json() if request.is_json else 'Not JSON'}")
+
         if not request.is_json:
-            logger.error("Invalid request format: Not JSON")
             return jsonify({
                 'success': False,
                 'error': '無効なリクエスト形式です'
             }), 400
 
         data = request.get_json()
-        filenames = data.get('files', [])
-        
-        # リクエストの検証
-        logger.info(f"Processing files: {filenames}")
-        
+        if not data or 'files' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'ファイル情報が含まれていません'
+            }), 400
+
+        filenames = data['files']
         if not filenames:
-            logger.error("No files provided")
             return jsonify({
                 'success': False,
                 'error': '処理するファイルがありません'
             }), 400
 
+        # 処理結果の追跡
         output_files = []
         errors = []
 
+        # 各ファイルを処理
         for filename in filenames:
             try:
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                
+                # ファイルの存在確認
                 if not os.path.exists(filepath):
                     error_msg = f"ファイルが見つかりません: {filename}"
                     logger.error(error_msg)
                     errors.append(error_msg)
                     continue
 
+                # ファイルの処理
+                logger.info(f"Processing file: {filename}")
                 result = process_campaign_file(filepath, filename)
+                
                 if result:
                     output_files.append(result)
-                    logger.info(f"Successfully processed file: {filename}")
+                    logger.info(f"Successfully processed: {filename} -> {result}")
+
             except Exception as e:
-                error_msg = f"ファイル処理エラー ({filename}): {str(e)}"
-                logger.error(error_msg, exc_info=True)
+                error_msg = f"{filename}: {str(e)}"
+                logger.error(f"File processing error: {error_msg}")
+                logger.error(traceback.format_exc())  # スタックトレースを出力
                 errors.append(error_msg)
 
-        if errors:
+        # 処理結果の確認
+        if not output_files and errors:
             return jsonify({
                 'success': False,
+                'error': '全てのファイルの処理に失敗しました',
                 'errors': errors
             }), 400
 
-        if not output_files:
-            return jsonify({
-                'success': False,
-                'error': '処理可能なファイルがありませんでした'
-            }), 400
-
+        # セッションに結果を保存
         session['output_files'] = output_files
         
         response_data = {
             'success': True,
-            'redirect': url_for('complete_campaign')
+            'redirect': url_for('complete_campaign'),
+            'processed_files': output_files
         }
-        logger.info(f"Processing complete. Response: {response_data}")
+        if errors:
+            response_data['warnings'] = errors
+
+        logger.info(f"Processing complete - Response: {response_data}")
         return jsonify(response_data)
 
     except Exception as e:
-        error_msg = f"処理エラー: {str(e)}"
-        logger.error(error_msg, exc_info=True)
+        error_msg = f"予期せぬエラー: {str(e)}"
+        logger.error(error_msg)
+        logger.error(traceback.format_exc())  # スタックトレースを出力
         return jsonify({
             'success': False,
             'error': error_msg
@@ -641,14 +654,24 @@ def download_file(filename):
         logger.error(f"ダウンロードエラー: {str(e)}", exc_info=True)
         return jsonify({'error': 'ダウンロードに失敗しました'}), 500
 
-# エラーハンドラー
-@app.errorhandler(404)
-def not_found_error(error):
-    return jsonify({'error': 'ページが見つかりません'}), 404
-
 @app.errorhandler(500)
-def internal_error(error):
-    return jsonify({'error': 'サーバー内部エラーが発生しました'}), 500
+def internal_server_error(e):
+    logger.error(f"500 error: {str(e)}")
+    logger.error(traceback.format_exc())
+    return jsonify({
+        'success': False,
+        'error': 'サーバー内部エラーが発生しました'
+    }), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    logger.error(f"Unhandled exception: {str(e)}")
+    logger.error(traceback.format_exc())
+    return jsonify({
+        'success': False,
+        'error': 'サーバーエラーが発生しました'
+    }), 500
+
 
 if __name__ == "__main__":
     app.run(debug=False)
