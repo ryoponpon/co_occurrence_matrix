@@ -16,13 +16,15 @@ logger = logging.getLogger(__name__)
 
 # Flask アプリケーションの設定
 app = Flask(__name__)
-CORS(app, resources={
-    r"/*": {
-        "origins": ["http://localhost:5000", "http://127.0.0.1:5000"],
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"]
-    }
-})
+CORS(app, supports_credentials=True)  # credentials サポートを追加
+
+# セッションの設定
+app.config.update(
+    SECRET_KEY=os.urandom(24),
+    SESSION_COOKIE_SECURE=True,  # 開発環境ではFalse
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax'
+)
 app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
 
 # 一時ディレクトリの設定
