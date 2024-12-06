@@ -1,5 +1,4 @@
 from flask import Flask, request, render_template, send_file, redirect, url_for, session, jsonify
-from werkzeug.utils import secure_filename
 from flask_cors import CORS
 import os
 import pandas as pd
@@ -41,9 +40,11 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def sanitize_filename(filename):
+    """安全でない文字を削除しつつ、日本語や特定文字を許容"""
     invalid_chars = '<>:"/\\|?*\0'
     clean_name = ''.join(c for c in filename if c not in invalid_chars)
-    return clean_name.strip()
+    clean_name = clean_name.strip()
+    return clean_name
 
 def clean_campaign_name(campaign_name):
     """キャンペーン名から先頭の数字と全角/半角スラッシュを削除"""
@@ -146,7 +147,8 @@ def upload_file():
     
     for file in files:
         if file and allowed_file(file.filename):
-            filename = secure_filename(sanitize_filename(file.filename))
+            # 日本語をそのまま許容
+            filename = sanitize_filename(file.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
             uploaded_files.append(filename)
@@ -231,13 +233,13 @@ def download_file(filename):
         if not os.path.exists(filepath):
             return "ファイルが見つかりません", 404
 
+        # 日本語ファイル名をそのままエンコード
         response = send_file(
             filepath,
             as_attachment=True,
             mimetype='text/csv;charset=utf-8',
             download_name=filename
         )
-        
         response.headers["Content-Disposition"] = \
             f"attachment; filename*=UTF-8''{quote(filename)}"
         
