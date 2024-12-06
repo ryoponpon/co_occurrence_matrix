@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, send_file, redirect, url_for, session, jsonify
+from flask import Flask, request, render_template, send_file, redirect, url_for, session, jsonify, make_response
 from flask_cors import CORS
 import os
 import pandas as pd
@@ -9,6 +9,11 @@ from urllib.parse import quote
 import logging
 import mimetypes
 import re
+
+# CSPヘッダーを設定する関数
+def add_security_headers(response):
+    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';"
+    return response
 
 # ロギングの設定
 logging.basicConfig(level=logging.INFO)
