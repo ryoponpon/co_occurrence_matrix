@@ -12,7 +12,7 @@ import re
 from openpyxl.utils import get_column_letter
 import traceback  # トレースバック情報の取得用
 from openpyxl.styles import Font, PatternFill
-from openpyxl.utils import get_column_letter
+
 
 # CSPを設定するデコレータ
 def add_csp_headers(response):
@@ -464,7 +464,7 @@ def process_cooccurrence_file(filepath, original_filename):
 
         # 共起行列の作成
         co_occurrence_counts = {}
-        for _, group in data.groupby("見込客/担当者ID18"):
+        for _, group in df_processed.groupby("見込客/担当者ID18"):
             campaign_names = group["キャンペーン名"].unique()
             if len(campaign_names) >= 2:
                 for i in range(len(campaign_names)):
