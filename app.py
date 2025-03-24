@@ -458,63 +458,6 @@ def process_cooccurrence_files():
             'error': f'予期せぬエラーが発生しました: {str(e)}'
         }), 500
 
-def process_cooccurrence_file(filepath, original_filename):
-    try:
-        # [前略: ファイル読み込みまでの部分は変更なし]
-
-        # 共起行列の作成
-        co_occurrence_counts = {}
-        for _, group in data.groupby("見込客/担当者ID18"):
-            campaign_names = group["キャンペーン名"].unique()
-            if len(campaign_names) >= 2:
-                for i in range(len(campaign_names)):
-                    for j in range(i + 1, len(campaign_names)):
-                        camp1, camp2 = campaign_names[i], campaign_names[j]
-                        pair = tuple(sorted([camp1, camp2]))
-                        co_occurrence_counts[pair] = co_occurrence_counts.get(pair, 0) + 1
-
-        # ユニークなキャンペーン名を取得
-        unique_campaigns = sorted(data["キャンペーン名"].unique())
-        
-        # Step 2: 初期化時にIndexとColumnsを設定
-        co_occurrence_matrix = pd.DataFrame(0, 
-                                         index=unique_campaigns, 
-                                         columns=unique_campaigns)
-        
-        # Step 3: ユーザーごとのグループ処理を改善
-        for _, group in data.groupby("見込客/担当者ID18"):
-            # 各ユーザーのユニークなキャンペーン
-            campaigns = group["キャンペーン名"].unique()
-            
-            # 2つ以上のキャンペーンがある場合のみ処理
-            if len(campaigns) >= 2:
-                # すべての組み合わせについて処理
-                for i in range(len(campaigns)):
-                    for j in range(i + 1, len(campaigns)):
-                        camp1, camp2 = campaigns[i], campaigns[j]
-                        # 両方向に加算
-                        co_occurrence_matrix.at[camp1, camp2] += 1
-                        co_occurrence_matrix.at[camp2, camp1] += 1
-        
-        # Step 4: 合計行と列を追加
-        co_occurrence_matrix['合計'] = co_occurrence_matrix.sum(axis=1)
-        total_row = co_occurrence_matrix.sum()
-        co_occurrence_matrix.loc['合計'] = total_row
-
-        # 出力処理
-        output_filename = f"共起行列-{os.path.splitext(original_filename)[0]}.{file_ext}"
-        output_filepath = os.path.join(app.config["OUTPUT_FOLDER"], output_filename)
-        
-        if file_ext == 'csv':
-            co_occurrence_matrix.to_csv(output_filepath, encoding='utf-8-sig')
-        else:  # xlsx
-            co_occurrence_matrix.to_excel(output_filepath)
-
-        return output_filename
-
-    except Exception as e:
-        logger.error(f"ファイル処理エラー: {str(e)}", exc_info=True)
-        raise
 
     
     
