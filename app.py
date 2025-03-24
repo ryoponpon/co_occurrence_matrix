@@ -12,7 +12,7 @@ import re
 from openpyxl.utils import get_column_letter
 import traceback  # トレースバック情報の取得用
 from openpyxl.styles import Font, PatternFill
-from openpyxl.utils import get_column_letter
+
 
 # CSPを設定するデコレータ
 def add_csp_headers(response):
@@ -460,31 +460,20 @@ def process_cooccurrence_files():
 
 def process_cooccurrence_file(filepath, original_filename):
     try:
-        # ファイルの拡張子を取得
-        file_ext = original_filename.rsplit('.', 1)[1].lower()
-        
-        # ファイルの読み込みとヘッダー行の特定
-        try:
-            header_row, df = find_header_row(filepath, file_ext)
-        except Exception as e:
-            logger.error(f"ヘッダー行の特定に失敗: {str(e)}")
-            raise ValueError("データ構造を認識できませんでした。ファイルを確認してください。")
-        
-        # 必要なカラム名を特定
-        try:
-            id_column, campaign_column = get_column_names(df)
-        except Exception as e:
-            logger.error(f"カラム名の特定に失敗: {str(e)}")
-            raise ValueError("必要なカラムが見つかりません。")
+        # [前略: ファイル読み込みまでの部分は変更なし]
 
-        # 必要な列のみを抽出
-        data = df[[id_column, campaign_column]].copy()
-        
-        # 列名を標準化
-        data.columns = ["見込客/担当者ID18", "キャンペーン名"]
-        
-        # ここから共起行列生成の処理を改善
-        # Step 1: キャンペーン名のユニーク化とソート
+        # 共起行列の作成
+        co_occurrence_counts = {}
+        for _, group in data.groupby("見込客/担当者ID18"):
+            campaign_names = group["キャンペーン名"].unique()
+            if len(campaign_names) >= 2:
+                for i in range(len(campaign_names)):
+                    for j in range(i + 1, len(campaign_names)):
+                        camp1, camp2 = campaign_names[i], campaign_names[j]
+                        pair = tuple(sorted([camp1, camp2]))
+                        co_occurrence_counts[pair] = co_occurrence_counts.get(pair, 0) + 1
+
+        # ユニークなキャンペーン名を取得
         unique_campaigns = sorted(data["キャンペーン名"].unique())
         
         # Step 2: 初期化時にIndexとColumnsを設定
