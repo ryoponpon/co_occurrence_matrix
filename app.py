@@ -460,71 +460,73 @@ def process_cooccurrence_files():
 
 def process_cooccurrence_file(filepath, original_filename):
     try:
-        # [前略: ファイル読み込みまでの部分は変更なし]
+        # ファイルの拡張子を取得
+        file_ext = original_filename.rsplit('.', 1)[1].lower()
+        
+        # ファイルの読み込みとヘッダー行の特定
+        try:
+            header_row, df = find_header_row(filepath, file_ext)
+        except Exception as e:
+            logger.error(f"ヘッダー行の特定に失敗: {str(e)}")
+            raise ValueError("データ構造を認識できませんでした。ファイルを確認してください。")
+        
+        # 必要なカラム名を特定
+        try:
+            id_column, campaign_column = get_column_names(df)
+        except Exception as e:
+            logger.error(f"カラム名の特定に失敗: {str(e)}")
+            raise ValueError("必要なカラムが見つかりません。")
 
-        # 共起行列の作成
-        co_occurrence_counts = {}
-        for _, group in data.groupby("見込客/担当者ID18"):
-            campaign_names = group["キャンペーン名"].unique()
-            if len(campaign_names) >= 2:
-                for i in range(len(campaign_names)):
-                    for j in range(i + 1, len(campaign_names)):
-                        camp1, camp2 = campaign_names[i], campaign_names[j]
-                        pair = tuple(sorted([camp1, camp2]))
-                        co_occurrence_counts[pair] = co_occurrence_counts.get(pair, 0) + 1
-
-        # ユニークなキャンペーン名を取得
+        # 必要な列のみを抽出
+        data = df[[id_column, campaign_column]].copy()
+        
+        # 列名を標準化
+        data.columns = ["見込客/担当者ID18", "キャンペーン名"]
+        
+        # ここから共起行列生成の処理を改善
+        # Step 1: キャンペーン名のユニーク化とソート
         unique_campaigns = sorted(data["キャンペーン名"].unique())
         
-        # 共起行列の作成
+        # Step 2: 初期化時にIndexとColumnsを設定
         co_occurrence_matrix = pd.DataFrame(0, 
                                          index=unique_campaigns, 
                                          columns=unique_campaigns)
         
-        # 共起回数を行列に設定
-        for (camp1, camp2), count in co_occurrence_counts.items():
-            co_occurrence_matrix.at[camp1, camp2] = count
-            co_occurrence_matrix.at[camp2, camp1] = count
-
-        # 合計行を追加（1行のみ）
-        sums = co_occurrence_matrix.sum()
-        co_occurrence_matrix.loc['合計'] = sums
+        # Step 3: ユーザーごとのグループ処理を改善
+        for _, group in data.groupby("見込客/担当者ID18"):
+            # 各ユーザーのユニークなキャンペーン
+            campaigns = group["キャンペーン名"].unique()
+            
+            # 2つ以上のキャンペーンがある場合のみ処理
+            if len(campaigns) >= 2:
+                # すべての組み合わせについて処理
+                for i in range(len(campaigns)):
+                    for j in range(i + 1, len(campaigns)):
+                        camp1, camp2 = campaigns[i], campaigns[j]
+                        # 両方向に加算
+                        co_occurrence_matrix.at[camp1, camp2] += 1
+                        co_occurrence_matrix.at[camp2, camp1] += 1
         
-        # 結果ファイルの保存
-        base_name = os.path.splitext(original_filename)[0]
-        output_filename = f"共起行列_{base_name}.{file_ext}"
+        # Step 4: 合計行と列を追加
+        co_occurrence_matrix['合計'] = co_occurrence_matrix.sum(axis=1)
+        total_row = co_occurrence_matrix.sum()
+        co_occurrence_matrix.loc['合計'] = total_row
+
+        # 出力処理
+        output_filename = f"共起行列-{os.path.splitext(original_filename)[0]}.{file_ext}"
         output_filepath = os.path.join(app.config["OUTPUT_FOLDER"], output_filename)
         
-        # ファイル形式に応じて保存
-        if file_ext == 'xlsx':
-            with pd.ExcelWriter(output_filepath, engine='openpyxl') as writer:
-                co_occurrence_matrix.to_excel(writer, sheet_name='共起行列')
-                
-                # シートの取得と整形
-                worksheet = writer.sheets['共起行列']
-                
-                # 列幅の自動調整
-                for idx, col in enumerate(co_occurrence_matrix.columns):
-                    max_length = max(
-                        co_occurrence_matrix[col].astype(str).apply(len).max(),
-                        len(str(col))
-                    )
-                    worksheet.column_dimensions[get_column_letter(idx + 2)].width = max_length + 2
-
-                # 合計行のスタイル設定
-                last_row = len(co_occurrence_matrix)
-                for col in range(1, len(co_occurrence_matrix.columns) + 2):
-                    cell = worksheet.cell(row=last_row + 1, column=col)
-                    cell.font = Font(bold=True)
-                    cell.fill = PatternFill(start_color='F0F0F0', end_color='F0F0F0', fill_type='solid')
-        else:
+        if file_ext == 'csv':
             co_occurrence_matrix.to_csv(output_filepath, encoding='utf-8-sig')
+        else:  # xlsx
+            co_occurrence_matrix.to_excel(output_filepath)
 
         return output_filename
 
     except Exception as e:
         logger.error(f"ファイル処理エラー: {str(e)}", exc_info=True)
         raise
+
     
     
 @app.route('/process_campaign', methods=['POST'])
